@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('reservas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('livro_id')->constrained('livros')->onDelete('cascade');
-            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('livro_id')->constrained()->onDelete('cascade'); // Chave estrangeira para livros
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');   // Chave estrangeira para users (o usuario que fez a reserva)
             $table->dateTime('data_reserva');
-            $table->string('status')->default('pendente');
+            $table->dateTime('data_expiracao')->nullable(); // Data limite para pegar o livro
+            $table->string('status')->default('pendente'); // Ex: 'pendente', 'ativa', 'cancelada', 'concluida'
             $table->timestamps();
         });
     }

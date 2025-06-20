@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('livros', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('editora_id')->constrained('editoras')->onDelete('cascade');
             $table->string('titulo');
+            $table->string('autor');
             $table->string('isbn')->unique();
-            $table->integer('ano_publicacao')->nullable();
+            $table->integer('ano_publicacao');
             $table->integer('qtd_exemplares')->default(1);
-            $table->string('autor')->nullable();
-            $table->string('status')->default('disponivel');
+            $table->string('status')->default('disponivel'); // Ex: 'disponivel', 'emprestado', 'reservado'
+            $table->foreignId('editora_id')->constrained()->onDelete('cascade'); // Chave estrangeira para editoras
             $table->timestamps();
         });
     }

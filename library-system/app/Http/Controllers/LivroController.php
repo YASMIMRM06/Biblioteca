@@ -3,96 +3,101 @@
 namespace App\Http\Controllers;
 
 use App\Models\Livro;
-use App\Models\Editora;
+use App\Models\Editora; // Importar o modelo Editora para o formulário
 use Illuminate\Http\Request;
 
 class LivroController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
     {
-        $this->authorize('viewAny', Livro::class);
-
-        $query = Livro::query()->with('editora');
-
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->where('titulo', 'like', "%{$search}%")
-                  ->orWhere('autor', 'like', "%{$search}%")
-                  ->orWhere('isbn', 'like', "%{$search}%");
-        }
-
-        $livros = $query->paginate(10); // Paginate results
-        return view('books.index', compact('livros'));
+        // Recupera todos os livros com seus relacionamentos de editora carregados
+        $livros = Livro::with('editora')->paginate(10);
+        return view('livros.index', compact('livros'));
     }
 
+    /**
+     * Show the form for creating a new resource.
+     */
     public function create()
     {
-        $this->authorize('create', Livro::class);
+        // Recupera todas as editoras para preencher o campo select no formulário
         $editoras = Editora::all();
-        return view('books.create', compact('editoras'));
+        return view('livros.create', compact('editoras'));
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
-        $this->authorize('create', Livro::class);
-
         $request->validate([
-            'editora_id' => 'required|exists:editoras,id',
             'titulo' => 'required|string|max:255',
-            'autor' => 'nullable|string|max:255',
-            'isbn' => 'required|string|unique:livros|max:255',
-            'ano_publicacao' => 'nullable|integer|min:1000|max:' . (date('Y') + 1),
-            'qtd_exemplares' => 'required|integer|min:1',
+            'autor' => 'required|string|max:255',
+            'isbn' => 'required|string|max:17|unique:livros,isbn', // ISBN deve ser único
+            'ano_publicacao' => 'required|integer|min:1000|max:' . date('Y'), // Ano válido
+            'qtd_exemplares' => 'required|integer|min:0',
+            'status' => 'required|string|in:disponivel,emprestado,reservado,inativo', // Enum de status
+            'editora_id' => 'required|exists:editoras,id', // Deve existir na tabela editoras
         ]);
 
         Livro::create($request->all());
 
-        return redirect()->route('books.index')->with('success', 'Book added successfully.');
+        return redirect()->route('livros.index')->with('success', 'Livro criado com sucesso!');
     }
 
-    public function show(Livro $book)
+    /**
+     * Display the specified resource.
+     */
+    public function show(Livro $livro)
     {
-        $this->authorize('view', $book);
-        return view('books.show', compact('book'));
+        // Carrega o relacionamento com a editora
+        $livro->load('editora');
+        return view('livros.show', compact('livro'));
     }
 
-    public function edit(Livro $book)
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Livro $livro)
     {
-        $this->authorize('update', $book);
         $editoras = Editora::all();
-        return view('books.edit', compact('book', 'editoras'));
+        return view('livros.edit', compact('livro', 'editoras'));
     }
 
-    public function update(Request $request, Livro $book)
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, Livro $livro)
     {
-        $this->authorize('update', $book);
-
         $request->validate([
-            'editora_id' => 'required|exists:editoras,id',
             'titulo' => 'required|string|max:255',
-            'autor' => 'nullable|string|max:255',
-            'isbn' => 'required|string|unique:livros,isbn,' . $book->id . '|max:255',
-            'ano_publicacao' => 'nullable|integer|min:1000|max:' . (date('Y') + 1),
-            'qtd_exemplares' => 'required|integer|min:0', // Can be 0 if all are out on loan
-            'status' => 'required|string|in:disponivel,emprestado,reservado',
+            'autor' => 'required|string|max:255',
+            'isbn' => 'required|string|max:17|unique:livros,isbn,' . $livro->id, // ISBN único, exceto o atual
+            'ano_publicacao' => 'required|integer|min:1000|max:' . date('Y'),
+            'qtd_exemplares' => 'required|integer|min:0',
+            'status' => 'required|string|in:disponivel,emprestado,reservado,inativo',
+            'editora_id' => 'required|exists:editoras,id',
         ]);
 
-        $book->update($request->all());
+        $livro->update($request->all());
 
-        return redirect()->route('books.index')->with('success', 'Book updated successfully.');
+        return redirect()->route('livros.index')->with('success', 'Livro atualizado com sucesso!');
     }
 
-    public function destroy(Livro $book)
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Livro $livro)
     {
-        $this->authorize('delete', $book);
-        $book->delete();
-        return redirect()->route('books.index')->with('success', 'Book deleted successfully.');
-    }
+        // Verifica se existem empréstimos ou reservas associados a este livro
+        if ($livro->emprestimos()->exists() || $livro->reservas()->exists()) {
+            return redirect()->route('livros.index')->with('error', 'Não é possível excluir o livro, pois há empréstimos ou reservas associados a ele.');
+        }
 
-    // Search functionality can use the index method with a search parameter.
-    // public function search(Request $request)
-    // {
-    //     // This functionality is already integrated into the index method.
-    //     // You could create a dedicated method if needed for more complex search.
-    // }
+        $livro->delete();
+        return redirect()->route('livros.index')->with('success', 'Livro excluído com sucesso!');
+    }
 }

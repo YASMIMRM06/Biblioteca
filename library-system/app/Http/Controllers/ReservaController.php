@@ -4,97 +4,145 @@ namespace App\Http\Controllers;
 
 use App\Models\Reserva;
 use App\Models\Livro;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 
 class ReservaController extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     */
     public function index()
     {
-        $this->authorize('viewAny', Reserva::class);
-        $reservas = Reserva::with(['livro', 'usuario'])->paginate(10);
-        return view('reservations.index', compact('reservas'));
+        $reservas = Reserva::with(['livro', 'user'])->paginate(10);
+        return view('reservas.index', compact('reservas'));
     }
 
-    // For "Fazer Reserva"
+    /**
+     * Show the form for creating a new resource.
+     */
     public function create()
     {
-        $this->authorize('create', Reserva::class);
-        $livros = Livro::all(); // User can reserve any book, availability checked in store
-        return view('reservations.create', compact('livros'));
+        $livros = Livro::all(); // Todos os livros, pois podem ser reservados mesmo se emprestados
+        $users = User::all();
+        return view('reservas.create', compact('livros', 'users'));
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
-        $this->authorize('create', Reserva::class);
+        $request->validate([
+            'livro_id' => [
+                'required',
+                'exists:livros,id',
+                // Opcional: Impedir reservar o mesmo livro várias vezes pelo mesmo usuário se não quiser isso
+                Rule::unique('reservas')->where(function ($query) use ($request) {
+                    return $query->where('user_id', $request->user_id)
+                                 ->where('livro_id', $request->livro_id)
+                                 ->whereIn('status', ['pendente']); // Apenas uma reserva pendente por livro/usuário
+                }),
+            ],
+            'user_id' => 'required|exists:users,id',
+            'data_reserva' => 'required|date',
+            'status' => 'required|string|in:pendente,cancelada,concluida',
+        ]);
 
+        // Criar a reserva
+        $reserva = Reserva::create($request->all());
+
+        // Se o livro estiver 'disponivel' e for reservado, seu status pode mudar para 'reservado'
+        $livro = Livro::find($request->livro_id);
+        if ($livro && $livro->status === 'disponivel') {
+            $livro->status = 'reservado';
+            $livro->save();
+        }
+
+        return redirect()->route('reservas.index')->with('success', 'Reserva criada com sucesso!');
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Reserva $reserva)
+    {
+        $reserva->load(['livro', 'user']);
+        return view('reservas.show', compact('reserva'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Reserva $reserva)
+    {
+        $livros = Livro::all();
+        $users = User::all();
+        return view('reservas.edit', compact('reserva', 'livros', 'users'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, Reserva $reserva)
+    {
         $request->validate([
             'livro_id' => 'required|exists:livros,id',
+            'user_id' => 'required|exists:users,id',
+            'data_reserva' => 'required|date',
+            'status' => 'required|string|in:pendente,cancelada,concluida',
         ]);
 
-        $livro = Livro::findOrFail($request->livro_id);
+        $oldStatus = $reserva->status;
+        $newStatus = $request->input('status');
 
-        // Check if the user already has an active reservation for this book
-        $existingReservation = Reserva::where('usuario_id', auth()->id())
-                                    ->where('livro_id', $request->livro_id)
-                                    ->where('status', 'pendente')
-                                    ->first();
+        $reserva->update($request->all());
 
-        if ($existingReservation) {
-            return redirect()->back()->with('error', 'You already have an active reservation for this book.');
+        // Lógica para atualizar o status do livro quando a reserva muda
+        $livro = Livro::find($reserva->livro_id);
+        if ($livro) {
+            // Se a reserva foi concluída ou cancelada e o livro estava 'reservado' por ela
+            if (($newStatus === 'concluida' || $newStatus === 'cancelada') && $livro->status === 'reservado') {
+                // Verificar se existem outras reservas pendentes para o mesmo livro
+                $outrasReservasPendentes = Reserva::where('livro_id', $livro->id)
+                                                    ->where('status', 'pendente')
+                                                    ->where('id', '!=', $reserva->id)
+                                                    ->exists();
+                if (!$outrasReservasPendentes) {
+                    // Se não houver mais reservas pendentes, o livro volta a ser disponível
+                    $livro->status = 'disponivel';
+                    $livro->save();
+                }
+            } elseif ($newStatus === 'pendente' && $livro->status === 'disponivel') {
+                $livro->status = 'reservado';
+                $livro->save();
+            }
         }
 
-        Reserva::create([
-            'livro_id' => $request->livro_id,
-            'usuario_id' => auth()->id(),
-            'data_reserva' => Carbon::now(),
-            'status' => 'pendente',
-        ]);
+        return redirect()->route('reservas.index')->with('success', 'Reserva atualizada com sucesso!');
+    }
 
-        // Optional: If a book has 0 physical copies available but is reserved, update its status
-        if ($livro->qtd_exemplares === 0 && $livro->status !== 'reservado') {
-             $livro->update(['status' => 'reservado']);
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Reserva $reserva)
+    {
+        // Lógica para atualizar o status do livro ao excluir a reserva
+        $livro = Livro::find($reserva->livro_id);
+        if ($livro && $reserva->status === 'pendente' && $livro->status === 'reservado') {
+            // Se o livro estava reservado por esta reserva e não há outras reservas pendentes, ele volta a ser disponível
+            $outrasReservasPendentes = Reserva::where('livro_id', $livro->id)
+                                                ->where('status', 'pendente')
+                                                ->where('id', '!=', $reserva->id)
+                                                ->exists();
+            if (!$outrasReservasPendentes) {
+                $livro->status = 'disponivel';
+                $livro->save();
+            }
         }
 
-        return redirect()->route('reservations.my')->with('success', 'Book reserved successfully.');
-    }
-
-    // For "Visualizar Minhas Reservas"
-    public function myReservations()
-    {
-        $user = auth()->user();
-        $reservas = $user->reservas()->with('livro')->paginate(10);
-        return view('reservations.my_reservations', compact('reservas'));
-    }
-
-    // Librarian actions to manage reservations (e.g., approve/cancel)
-    public function edit(Reserva $reservation)
-    {
-        $this->authorize('update', $reservation);
-        return view('reservations.edit', compact('reservation'));
-    }
-
-    public function update(Request $request, Reserva $reservation)
-    {
-        $this->authorize('update', $reservation);
-        $request->validate([
-            'status' => 'required|string|in:pendente,aprovada,cancelada,concluida',
-        ]);
-
-        $reservation->update(['status' => $request->status]);
-
-        // If reservation is approved and book is available, perhaps change book status
-        if ($request->status === 'aprovada' && $reservation->livro->qtd_exemplares > 0) {
-            // This might indicate the book is now on hold for this user
-        }
-
-        return redirect()->route('reservations.index')->with('success', 'Reservation updated successfully.');
-    }
-
-    public function destroy(Reserva $reservation)
-    {
-        $this->authorize('delete', $reservation);
-        $reservation->delete();
-        return redirect()->route('reservations.index')->with('success', 'Reservation deleted successfully.');
+        $reserva->delete();
+        return redirect()->route('reservas.index')->with('success', 'Reserva excluída com sucesso!');
     }
 }

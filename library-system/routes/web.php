@@ -1,79 +1,59 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\LivroController;
-use App\Http\Controllers\EditoraController;
-use App\Http\Controllers\EmprestimoController;
-use App\Http\Controllers\ReservaController;
-use App\Http\Controllers\RelatorioController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::middleware('guest')->group(function () {
+    Route::get('register', [RegisteredUserController::class, 'create'])
+                ->name('register');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+    Route::post('register', [RegisteredUserController::class, 'store']);
+
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+                ->name('login');
+
+    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
+                ->name('password.request');
+
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+                ->name('password.email');
+
+    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
+                ->name('password.reset');
+
+    Route::post('reset-password', [NewPasswordController::class, 'store'])
+                ->name('password.store');
+});
 
 Route::middleware('auth')->group(function () {
-    // User Profile routes (from Breeze)
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('verify-email', EmailVerificationPromptController::class)
+                ->name('verification.notice');
 
-    // Admin-specific routes (Librarian)
-    Route::middleware(['can:isLibrarian'])->group(function () {
-        // User Management (CRUD) - accessible by Librarian
-        Route::resource('users', UserController::class);
+    Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
+                ->middleware(['signed', 'throttle:6,1'])
+                ->name('verification.verify');
 
-        // Book Management (CRUD)
-        Route::resource('books', LivroController::class);
+    Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+                ->middleware('throttle:6,1')
+                ->name('verification.send');
 
-        // Publisher Management (CRUD)
-        Route::resource('publishers', EditoraController::class);
+    Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
+                ->name('password.confirm');
 
-        // Loan Management
-        Route::get('/loans', [EmprestimoController::class, 'index'])->name('loans.index');
-        Route::get('/loans/create', [EmprestimoController::class, 'create'])->name('loans.create');
-        Route::post('/loans', [EmprestimoController::class, 'store'])->name('loans.store');
-        Route::get('/loans/{loan}/return', [EmprestimoController::class, 'showReturnForm'])->name('returns.create');
-        Route::put('/loans/{loan}/return', [EmprestimoController::class, 'processReturn'])->name('returns.store');
-        Route::put('/loans/{loan}/renew', [EmprestimoController::class, 'renew'])->name('loans.renew'); // Librarian can renew
-        Route::get('/loans/fines', [EmprestimoController::class, 'fines'])->name('fines.index');
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
+    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 
-        // Reservation Management
-        Route::get('/reservations/manage', [ReservaController::class, 'index'])->name('reservations.index'); // Librarian view all
-        Route::get('/reservations/manage/{reservation}/edit', [ReservaController::class, 'edit'])->name('reservations.edit');
-        Route::put('/reservations/manage/{reservation}', [ReservaController::class, 'update'])->name('reservations.update');
-        Route::delete('/reservations/manage/{reservation}', [ReservaController::class, 'destroy'])->name('reservations.destroy');
-
-        // Reports
-        Route::get('/reports', [RelatorioController::class, 'index'])->name('reports.index');
-        Route::get('/reports/overdue-loans', [RelatorioController::class, 'overdueLoansReport'])->name('reports.overdue_loans');
-        Route::get('/reports/most-borrowed-books', [RelatorioController::class, 'mostBorrowedBooksReport'])->name('reports.most_borrowed_books');
-    });
-
-    // User-specific routes
-    Route::middleware(['can:isUser'])->group(function () {
-        Route::get('/my-loans', [EmprestimoController::class, 'myLoans'])->name('loans.my');
-        Route::put('/my-loans/{loan}/renew', [EmprestimoController::class, 'renew'])->name('loans.user_renew'); // User can renew their own loan
-
-        Route::get('/my-reservations', [ReservaController::class, 'myReservations'])->name('reservations.my');
-        Route::get('/reservations/new', [ReservaController::class, 'create'])->name('reservations.create');
-        Route::post('/reservations', [ReservaController::class, 'store'])->name('reservations.store');
-
-        // Book Search (common for both, but for specific user path)
-        Route::get('/books/search', [LivroController::class, 'index'])->name('books.search'); // Uses index with search parameter
-    });
-
-    // Common routes (accessible by both librarians and regular users)
-    Route::get('/books', [LivroController::class, 'index'])->name('books.index'); // General book listing (can also be search)
-    Route::get('/books/{book}', [LivroController::class, 'show'])->name('books.show');
-    Route::get('/publishers', [EditoraController::class, 'index'])->name('publishers.index'); // Can view all publishers
-    Route::get('/publishers/{publisher}', [EditoraController::class, 'show'])->name('publishers.show');
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+                ->name('logout');
 });
-
-require __DIR__.'/auth.php';

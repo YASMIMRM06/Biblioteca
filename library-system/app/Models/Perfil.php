@@ -4,15 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Perfil extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['usuario_id', 'telefone'];
+    protected $fillable = [
+        'user_id',
+        'telefone',
+        'tipo',
+    ];
 
-    public function usuario()
+    // Relacionamento 1-1 com User (inverso de User->perfil())
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'usuario_id');
+        return $this->belongsTo(User::class);
     }
 }

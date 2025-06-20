@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('perfis', function (Blueprint $table) {
+        Schema::create('editoras', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
-            $table->string('telefone')->nullable();
+            $table->string('nome')->unique();
+            $table->string('cnpj')->unique()->nullable();
             $table->timestamps();
         });
     }
@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('perfis');
+        Schema::dropIfExists('editoras');
     }
 };

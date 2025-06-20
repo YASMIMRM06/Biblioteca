@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-// Remove MustVerifyEmail if not using email verification
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class User extends Authenticatable // implements MustVerifyEmail // Uncomment if using email verification
+class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -22,7 +23,6 @@ class User extends Authenticatable // implements MustVerifyEmail // Uncomment if
         'name',
         'email',
         'password',
-        'tipo', // Added 'tipo' to fillable
     ];
 
     /**
@@ -45,28 +45,21 @@ class User extends Authenticatable // implements MustVerifyEmail // Uncomment if
         'password' => 'hashed',
     ];
 
-    public function perfil()
+    // Relacionamento 1-1 com Perfil
+    public function perfil(): HasOne
     {
-        return $this->hasOne(Perfil::class, 'usuario_id');
+        return $this->hasOne(Perfil::class);
     }
 
-    public function emprestimos()
+    // Relacionamento 1-N com Emprestimo
+    public function emprestimos(): HasMany
     {
-        return $this->hasMany(Emprestimo::class, 'usuario_id');
+        return $this->hasMany(Emprestimo::class);
     }
 
-    public function reservas()
+    // Relacionamento 1-N com Reserva
+    public function reservas(): HasMany
     {
-        return $this->hasMany(Reserva::class, 'usuario_id');
-    }
-
-    public function isLibrarian()
-    {
-        return $this->tipo === 'bibliotecario';
-    }
-
-    public function isUser()
-    {
-        return $this->tipo === 'usuario';
+        return $this->hasMany(Reserva::class);
     }
 }

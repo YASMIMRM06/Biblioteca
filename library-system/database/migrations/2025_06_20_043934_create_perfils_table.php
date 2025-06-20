@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('editoras', function (Blueprint $table) {
+        Schema::create('perfis', function (Blueprint $table) {
             $table->id();
-            $table->string('nome');
-            $table->string('cnpj')->unique();
+            $table->foreignId('user_id')->unique()->constrained()->onDelete('cascade'); // Relacionamento 1-1 com a tabela users
+            $table->string('telefone')->nullable();
+            $table->string('tipo')->default('usuario'); // Ex: 'admin', 'bibliotecario', 'usuario'
             $table->timestamps();
         });
     }
@@ -24,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('editoras');
+        Schema::dropIfExists('perfis');
     }
 };

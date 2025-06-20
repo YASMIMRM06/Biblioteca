@@ -2,27 +2,38 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory; // <--- ESTA LINHA É FUNDAMENTAL!
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Livro extends Model
 {
-    use HasFactory;
+    use HasFactory; // <--- E ESTA AQUI TAMBÉM!
 
-    protected $fillable = ['editora_id', 'titulo', 'isbn', 'ano_publicacao', 'qtd_exemplares', 'autor', 'status'];
+    protected $fillable = [
+        'titulo',
+        'autor',
+        'isbn',
+        'ano_publicacao',
+        'qtd_exemplares',
+        'status',
+        'editora_id',
+    ];
 
-    public function editora()
+    // Seus relacionamentos...
+    public function editora(): BelongsTo
     {
-        return $this->belongsTo(Editora::class, 'editora_id');
+        return $this->belongsTo(Editora::class);
     }
 
-    public function emprestimos()
+    public function emprestimos(): HasMany
     {
-        return $this->hasMany(Emprestimo::class, 'livro_id');
+        return $this->hasMany(Emprestimo::class);
     }
 
-    public function reservas()
+    public function reservas(): HasMany
     {
-        return $this->hasMany(Reserva::class, 'livro_id');
+        return $this->hasMany(Reserva::class);
     }
 }

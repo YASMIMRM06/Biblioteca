@@ -16,7 +16,7 @@
 
         <nav class="navbar">
             <div class="container_logo">
-                <a href="{{route('home')}}" class="ancor_img"><img src="{{asset('imgs/navbar/LYBRIS.svg')}}" alt="" class="img_navbar"></a>
+                <a href="{{route('home')}}" class="ancor_img"><img src="{{asset('imgs/navbar/LYBRIS.png')}}" alt="" class="img_navbar"></a>
                 @if(Route::currentRouteName() == 'home' or Route::currentRouteName() == 'welcome')
                     <div class="container_input">
                         <img src="{{asset('imgs/navbar/search-line.svg')}}" class="search_icon">

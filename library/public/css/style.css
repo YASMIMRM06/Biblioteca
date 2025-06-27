@@ -41,3 +41,14 @@
     width: 15px;
     color: red;
 }
+.btn-book {
+    padding: 10px 20px;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.loan-form {
+    margin-bottom: 15px;
+}

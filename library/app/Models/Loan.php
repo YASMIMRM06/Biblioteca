@@ -19,4 +19,8 @@ class Loan extends Model
     public function user() {
         return $this->belongsTo('App\Models\User');
     }
+ public function getIsLateAttribute()
+    {
+        return $this->devolution_date < now() && $this->status != 'devolvido';
+    }
 }

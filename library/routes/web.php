@@ -28,5 +28,33 @@ Route::DELETE('/book/{id}/cancel', [ReservationController::class, 'cancel'])->mi
 Route::get('/loans', [LoansController::class, 'panel'])->middleware('admin')->name('loans.panel');
 Route::put('/loans/check/{id}', [LoansController::class, 'check'])->middleware('admin')->name('requests.check');
 
+// Dashboard Admin
+Route::get('/admin', [AdminController::class, 'dashboard'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.dashboard');
+
+// Histórico de Empréstimos do Usuário
+Route::get('/user/loans', [ReservationController::class, 'userLoansHistory'])
+    ->middleware('auth')
+    ->name('user.loans.history');
+
+// Relatórios (opcionais)
+Route::prefix('admin/reports')->middleware(['auth', 'admin'])->group(function () {
+    Route::get('/books', [AdminController::class, 'booksReport'])->name('admin.reports.books');
+    Route::get('/users', [AdminController::class, 'usersReport'])->name('admin.reports.users');
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin', [AdminController::class, 'dashboard'])
+        ->name('admin.dashboard')
+        ->middleware('can:admin-access');
+});
+// Rotas para empréstimos e devoluções
+Route::post('/book/{id}/alugar', [ReservationController::class, 'reserve'])
+    ->middleware('auth')
+    ->name('alugar.livro');
+
+Route::post('/loan/{id}/devolver', [ReservationController::class, 'devolver'])
+    ->middleware('auth')
+    ->name('devolver.livro');
 Auth::routes();
 

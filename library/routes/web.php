@@ -5,56 +5,45 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\LoansController;
+use App\Http\Controllers\AdminController;
 
-
+// Public routes
 Route::get('/', [BookController::class, 'welcome'])->name('welcome');
-Route::get('/home', [BookController::class, 'index'])->middleware('auth')->name('home');
 
-// Book Routes
-Route::get('/create', [BookController::class, 'create'])->middleware('admin')->name('create');
-Route::POST('/store', [BookController::class, 'store'])->middleware('admin')->name('save');
-Route::get('/book/{id}', [BookController::class, 'show'])->name('show')->middleware('auth');
-Route::DELETE('/book/{id}/delete', [BookController::class, 'destroy'])->middleware('admin')->name('destroy');
-Route::get('/book/edit/{id}', [BookController::class, 'edit'])->middleware('admin')->name('edit.book');
-Route::put('/book/update/{id}', [BookController::class, 'update'])->middleware('admin')->name('update');
-
-// Reserves Routes
-Route::get('/reserve/requests', [ReservationController::class, 'requests'])->middleware('admin')->name('requests.reserves');
-Route::POST('/reserve/requests/validate/{id}', [ReservationController::class, 'validateReserve'])->middleware('admin')->name('requests.validate');
-Route::POST('/book/{id}/reserve', [ReservationController::class, 'reserve'])->middleware('auth')->name('reservation');
-Route::DELETE('/book/{id}/cancel', [ReservationController::class, 'cancel'])->middleware('auth')->name('cancel.reservation');
-
-// Loans Routes
-Route::get('/loans', [LoansController::class, 'panel'])->middleware('admin')->name('loans.panel');
-Route::put('/loans/check/{id}', [LoansController::class, 'check'])->middleware('admin')->name('requests.check');
-
-// Dashboard Admin
-Route::get('/admin', [AdminController::class, 'dashboard'])
-    ->middleware(['auth', 'admin'])
-    ->name('admin.dashboard');
-
-// Histórico de Empréstimos do Usuário
-Route::get('/user/loans', [ReservationController::class, 'userLoansHistory'])
-    ->middleware('auth')
-    ->name('user.loans.history');
-
-// Relatórios (opcionais)
-Route::prefix('admin/reports')->middleware(['auth', 'admin'])->group(function () {
-    Route::get('/books', [AdminController::class, 'booksReport'])->name('admin.reports.books');
-    Route::get('/users', [AdminController::class, 'usersReport'])->name('admin.reports.users');
-});
+// Authenticated routes (regular users and admin)
 Route::middleware(['auth'])->group(function () {
-    Route::get('/admin', [AdminController::class, 'dashboard'])
-        ->name('admin.dashboard')
-        ->middleware('can:admin-access');
+    Route::get('/home', [BookController::class, 'index'])->name('home');
+    Route::get('/book/{id}', [BookController::class, 'show'])->name('show');
+    
+    // Reservation/loan routes
+    Route::post('/book/{id}/reserve', [ReservationController::class, 'reserve'])
+        ->name('reservation');
+    Route::post('/loan/{id}/devolver', [ReservationController::class, 'devolver'])
+        ->name('devolver.livro');
 });
-// Rotas para empréstimos e devoluções
-Route::post('/book/{id}/alugar', [ReservationController::class, 'reserve'])
-    ->middleware('auth')
-    ->name('alugar.livro');
 
-Route::post('/loan/{id}/devolver', [ReservationController::class, 'devolver'])
-    ->middleware('auth')
-    ->name('devolver.livro');
+// Admin-only routes
+Route::middleware(['auth', 'admin'])->group(function () {
+    // Dashboard
+    Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    
+    // Book CRUD
+    Route::get('/create', [BookController::class, 'create'])->name('create');
+    Route::post('/store', [BookController::class, 'store'])->name('save');
+    Route::delete('/book/{id}/delete', [BookController::class, 'destroy'])->name('destroy');
+    Route::get('/book/edit/{id}', [BookController::class, 'edit'])->name('edit.book');
+    Route::put('/book/update/{id}', [BookController::class, 'update'])->name('update');
+    
+    // Loans panel
+    Route::get('/loans', [LoansController::class, 'panel'])->name('loans.panel');
+    Route::put('/loans/check/{id}', [LoansController::class, 'check'])->name('requests.check');
+    
+    // Reservations
+    Route::get('/reserve/requests', [ReservationController::class, 'requests'])
+        ->name('requests.reserves');
+    Route::post('/reserve/requests/validate/{id}', [ReservationController::class, 'validateReserve'])
+        ->name('requests.validate');
+});
+
+// Authentication routes
 Auth::routes();
-
